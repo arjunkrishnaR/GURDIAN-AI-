@@ -2,7 +2,7 @@
 
 ## 1. High-Level Architecture Overview
 
-GuardianAI is designed around an event-driven, diagnostic, and human-in-the-loop repair pipeline:
+GuardianAI is designed around an event-driven, diagnostic, human-in-the-loop repair pipeline:
 
 ```
 Windows/System
@@ -21,19 +21,15 @@ Incident Engine
       ↓
 Context Builder
       ↓
-Diagnostic AI
-      ↓
-    RAG
+Diagnostic AI (Recommendation Engine)
       ↓
 Solution Planner
       ↓
-Policy Engine
+Approval Checkpoint  ◄── [PHASE 2 APPROVAL CHECKPOINT CONTRACT]
       ↓
-User Approval
+User Decision (Explicit Human Approval)
       ↓
-Action Engine
-      ↓
-Computer Control
+Action Execution Engine
       ↓
  Verification
       ↓
@@ -57,6 +53,7 @@ GuardianAI currently includes:
 7. **`guardian.events.models`**: Strongly typed, frozen, read-only `GuardianEvent` and `RawEvent` models with UUID v4 event IDs and UTC timestamps.
 8. **`guardian.events.normalizer`**: `EventNormalizer` normalizing raw telemetry, enum strings, and timestamps into UTC `GuardianEvent` instances.
 9. **`guardian.events.bus`**: Asynchronous `EventBus` supporting filtering, concurrent `asyncio` dispatch, handler failure isolation, and metrics.
+10. **`guardian.core.approval`**: Explicit `ApprovalCheckpoint` contract introducing `ApprovalDecision` (`PENDING`, `APPROVED`, `DENIED`, `EXPIRED`) and `RiskLevel` (`LOW`, `MEDIUM`, `HIGH`, `CRITICAL`), guaranteeing `NO APPROVAL = NO HIGH-IMPACT ACTION`.
 
 ---
 
