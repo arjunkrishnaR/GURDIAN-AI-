@@ -1,0 +1,15 @@
+# GuardianAI Configuration Template
+app:
+  name: "GuardianAI"
+  version: "0.1.0"
+  environment: "development"
+  dev_mode: true
+  debug_mode: false
+
+logging:
+  log_level: "INFO"
+  log_dir: "logs"
+  log_file: "guardian.log"
+
+storage:
+  data_dir: "data"
