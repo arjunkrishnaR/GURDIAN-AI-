@@ -13,7 +13,7 @@ def test_health_checks_healthy(tmp_path):
     checker = HealthChecker(config=cfg)
     results = checker.run_all_checks()
 
-    assert len(results) == 5
+    assert len(results) == 6
     for res in results:
         assert res.status in (HealthStatus.HEALTHY, HealthStatus.WARNING)
         assert res.component in [
@@ -22,6 +22,7 @@ def test_health_checks_healthy(tmp_path):
             "filesystem",
             "logging",
             "application_state",
+            "event_system",
         ]
 
 

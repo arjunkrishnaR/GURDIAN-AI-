@@ -24,3 +24,18 @@ class HealthCheckError(GuardianError):
 class LifecycleError(GuardianError):
     """Raised when application lifecycle state management fails."""
     pass
+
+
+class EventError(GuardianError):
+    """Base exception for event system errors."""
+    pass
+
+
+class EventNormalizationError(EventError):
+    """Raised when raw event normalization fails or payload is malformed."""
+    pass
+
+
+class EventBusError(EventError):
+    """Raised when event bus operations or handler dispatch encounters an unhandled error."""
+    pass

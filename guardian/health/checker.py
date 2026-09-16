@@ -152,12 +152,52 @@ class HealthChecker:
                 details={"error": str(e)}
             )
 
+    def check_event_system(self) -> HealthCheckResult:
+        """Verify EventBus and EventNormalizer operational readiness."""
+        try:
+            import asyncio
+            from guardian.events import EventBus, EventNormalizer, EventSource, TestEventHandler
+
+            normalizer = EventNormalizer()
+            bus = EventBus()
+            handler = TestEventHandler("HealthCheckHandler")
+            bus.subscribe(handler)
+
+            event = normalizer.normalize({"source": EventSource.INTERNAL, "event_type": "HEALTH_CHECK_TEST"})
+            
+            # Run async publish synchronously inside check
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    # If already in async context, run inline task
+                    task = loop.create_task(bus.publish(event))
+                else:
+                    asyncio.run(bus.publish(event))
+            except RuntimeError:
+                asyncio.run(bus.publish(event))
+
+            return HealthCheckResult(
+                component="event_system",
+                status=HealthStatus.HEALTHY,
+                message="Event system initialized, normalized, and published test event successfully.",
+                details={"event_id": event.event_id, "stats": bus.stats.__dict__}
+            )
+        except Exception as e:
+            return HealthCheckResult(
+                component="event_system",
+                status=HealthStatus.FAILED,
+                message=f"Event system check failed: {e}",
+                details={"error": str(e)}
+            )
+
     def run_all_checks(self) -> List[HealthCheckResult]:
-        """Execute all Phase 1 health checks and return list of results."""
+        """Execute all Phase 1 and Phase 2 health checks and return list of results."""
         return [
             self.check_python_runtime(),
             self.check_configuration(),
             self.check_filesystem(),
             self.check_logging(),
             self.check_application_state(),
+            self.check_event_system(),
         ]
+

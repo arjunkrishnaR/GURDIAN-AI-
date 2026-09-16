@@ -6,15 +6,11 @@ GuardianAI follows the principles of local-first, privacy-respecting computing:
 
 > *"Use locally runnable open-source software and open-weight AI models wherever practical, with no mandatory proprietary cloud AI dependency."*
 
-### Key Distinction:
-* **Open-Source Software (OSS)**: Software released under OSI-approved open-source licenses (e.g., MIT, Apache 2.0, BSD) providing access to source code, modification rights, and redistribution rights.
-* **Open-Weight AI Models**: Machine learning models whose trained weights are made publicly available (e.g., Llama 3, Qwen 2.5) for local execution under specific model usage licenses. They are not strictly open-source code repositories.
-
 ---
 
-## 2. Phase 1 Dependency Manifest
+## 2. Dependency Manifest
 
-Phase 1 keeps external dependencies minimal to maximize stability, performance, and security.
+GuardianAI keeps external dependencies minimal. Phase 2 relies 100% on the Python standard library for its event models, normalizer, and asynchronous event bus.
 
 ### Production Dependencies
 
@@ -22,16 +18,25 @@ Phase 1 keeps external dependencies minimal to maximize stability, performance, 
 | :--- | :--- | :--- | :--- | :--- |
 | **PyYAML** | `>=6.0` | MIT | Open-Source Software | YAML configuration file parsing in `guardian.core.config`. |
 
+### Standard Library Modules Utilized in Phase 2
+* `dataclasses`: Data structure modeling (`RawEvent`, `GuardianEvent`)
+* `enum`: Strict enumerations (`EventSource`, `EventCategory`, `Severity`)
+* `datetime`: Timezone-aware UTC timestamps
+* `uuid`: Cryptographically strong UUID v4 event IDs
+* `asyncio`: Asynchronous event bus dispatch & concurrency
+* `json`: Safe event serialization and deserialization
+* `types.MappingProxyType`: Read-only dictionary views for true event metadata immutability
+
 ### Development & Testing Dependencies
 
 | Package | Version Requirement | License | Category | Description / Purpose |
 | :--- | :--- | :--- | :--- | :--- |
-| **pytest** | `>=7.0.0` | MIT | Open-Source Software | Test runner for executing unit and integration test suites. |
+| **pytest** | `>=7.0.0` | MIT | Open-Source Software | Test runner for unit and integration test suites. |
+| **pytest-asyncio** | *(Optional)* | MIT | Open-Source Software | Async test runner support if needed. |
 
 ---
 
 ## 3. Python 3.14 Compatibility Notes
 
 * System Python version: `3.14.2`
-* `PyYAML 6.0+` and `pytest 7.0+` are fully verified compatible with Python 3.14 standard library.
-* Virtual environment creation uses Python standard library `venv`.
+* All standard library modules (`asyncio`, `dataclasses`, `types.MappingProxyType`) are native and fully compatible.
