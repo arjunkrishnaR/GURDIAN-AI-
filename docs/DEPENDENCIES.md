@@ -10,7 +10,7 @@ GuardianAI follows the principles of local-first, privacy-respecting computing:
 
 ## 2. Dependency Manifest
 
-GuardianAI keeps external dependencies minimal. Phase 2 relies 100% on the Python standard library for its event models, normalizer, and asynchronous event bus.
+GuardianAI keeps external dependencies minimal. Phase 1, Phase 2, and Phase 3 rely 100% on the Python standard library and native Windows APIs for event models, normalizer, event bus, and monitoring collectors.
 
 ### Production Dependencies
 
@@ -18,25 +18,22 @@ GuardianAI keeps external dependencies minimal. Phase 2 relies 100% on the Pytho
 | :--- | :--- | :--- | :--- | :--- |
 | **PyYAML** | `>=6.0` | MIT | Open-Source Software | YAML configuration file parsing in `guardian.core.config`. |
 
-### Standard Library Modules Utilized in Phase 2
-* `dataclasses`: Data structure modeling (`RawEvent`, `GuardianEvent`)
-* `enum`: Strict enumerations (`EventSource`, `EventCategory`, `Severity`)
-* `datetime`: Timezone-aware UTC timestamps
-* `uuid`: Cryptographically strong UUID v4 event IDs
-* `asyncio`: Asynchronous event bus dispatch & concurrency
-* `json`: Safe event serialization and deserialization
-* `types.MappingProxyType`: Read-only dictionary views for true event metadata immutability
+### Standard Library Modules Utilized in Phase 3
+* `subprocess`: Subprocess execution (`shell=False`, timeout cap) for `wevtutil.exe` and `tasklist.exe` queries
+* `asyncio`: Background worker task management and polling loops
+* `collections.deque`: Bounded event deduplication queues (`maxlen=1000`)
+* `xml.etree.ElementTree`: XML parsing of Windows Event Log records
+* `dataclasses`, `enum`, `datetime`, `uuid`, `ctypes`, `winreg`
 
 ### Development & Testing Dependencies
 
 | Package | Version Requirement | License | Category | Description / Purpose |
 | :--- | :--- | :--- | :--- | :--- |
 | **pytest** | `>=7.0.0` | MIT | Open-Source Software | Test runner for unit and integration test suites. |
-| **pytest-asyncio** | *(Optional)* | MIT | Open-Source Software | Async test runner support if needed. |
 
 ---
 
 ## 3. Python 3.14 Compatibility Notes
 
 * System Python version: `3.14.2`
-* All standard library modules (`asyncio`, `dataclasses`, `types.MappingProxyType`) are native and fully compatible.
+* All standard library modules (`subprocess`, `asyncio`, `collections`, `xml.etree.ElementTree`) are native and fully compatible.

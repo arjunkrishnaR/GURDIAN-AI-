@@ -190,8 +190,51 @@ class HealthChecker:
                 details={"error": str(e)}
             )
 
+    def check_monitoring_system(self) -> HealthCheckResult:
+        """Verify MonitoringManager initialization and sub-collector health states."""
+        try:
+            from guardian.monitoring import MonitoringManager, MockWindowsEventLogProvider, WindowsEventLogCollector, MockProcessProvider, ProcessCollector, SystemCollector
+
+            # Lightweight check using mock providers
+            mock_wel = MockWindowsEventLogProvider()
+            mock_proc = MockProcessProvider()
+
+            collectors = [
+                WindowsEventLogCollector(provider=mock_wel),
+                ProcessCollector(provider=mock_proc),
+                SystemCollector(),
+            ]
+
+            mgr = MonitoringManager(config=self._config or load_config(), collectors=collectors)
+            status_dict = mgr.get_collector_status()
+            health_cond = mgr.health_condition
+
+            status = HealthStatus.HEALTHY
+            if health_cond == "DEGRADED":
+                status = HealthStatus.WARNING
+            elif health_cond == "FAILED":
+                status = HealthStatus.FAILED
+
+            return HealthCheckResult(
+                component="monitoring_system",
+                status=status,
+                message=f"Monitoring system active (Health Condition: {health_cond}).",
+                details={
+                    "health_condition": health_cond,
+                    "manager_state": mgr.state.name,
+                    "collectors": status_dict,
+                }
+            )
+        except Exception as e:
+            return HealthCheckResult(
+                component="monitoring_system",
+                status=HealthStatus.FAILED,
+                message=f"Monitoring system check failed: {e}",
+                details={"error": str(e)}
+            )
+
     def run_all_checks(self) -> List[HealthCheckResult]:
-        """Execute all Phase 1 and Phase 2 health checks and return list of results."""
+        """Execute all Phase 1, Phase 2, and Phase 3 health checks and return list of results."""
         return [
             self.check_python_runtime(),
             self.check_configuration(),
@@ -199,5 +242,7 @@ class HealthChecker:
             self.check_logging(),
             self.check_application_state(),
             self.check_event_system(),
+            self.check_monitoring_system(),
         ]
+
 

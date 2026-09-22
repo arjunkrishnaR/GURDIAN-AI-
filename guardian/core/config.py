@@ -3,7 +3,7 @@
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 
 try:
     import yaml
@@ -27,6 +27,14 @@ class GuardianConfig:
     dev_mode: bool = True
     debug_mode: bool = False
 
+    # Monitoring Configuration
+    monitoring_enabled: bool = True
+    win_event_log_enabled: bool = True
+    win_event_log_channels: List[str] = field(default_factory=lambda: ["Application", "System"])
+    process_monitoring_enabled: bool = True
+    process_poll_interval: float = 2.0
+    system_monitoring_enabled: bool = True
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert configuration to dictionary."""
         return {
@@ -39,21 +47,19 @@ class GuardianConfig:
             "data_dir": self.data_dir,
             "dev_mode": self.dev_mode,
             "debug_mode": self.debug_mode,
+            "monitoring_enabled": self.monitoring_enabled,
+            "win_event_log_enabled": self.win_event_log_enabled,
+            "win_event_log_channels": self.win_event_log_channels,
+            "process_monitoring_enabled": self.process_monitoring_enabled,
+            "process_poll_interval": self.process_poll_interval,
+            "system_monitoring_enabled": self.system_monitoring_enabled,
         }
 
 
 def load_config(config_path: Optional[str] = None) -> GuardianConfig:
-    """
-    Load configuration deterministically from defaults, optional YAML file, and environment variables.
-    
-    Priority:
-    1. Environment variables (GUARDIAN_*)
-    2. YAML config file (if specified or default existing file)
-    3. Defaults defined in GuardianConfig dataclass
-    """
+    """Load configuration deterministically from defaults, optional YAML file, and env vars."""
     data: Dict[str, Any] = {}
 
-    # 1. Load from YAML file if provided or default config exists
     target_yaml: Optional[Path] = None
     if config_path:
         target_yaml = Path(config_path)
@@ -76,6 +82,7 @@ def load_config(config_path: Optional[str] = None) -> GuardianConfig:
                 app_cfg = parsed.get("app", {})
                 log_cfg = parsed.get("logging", {})
                 storage_cfg = parsed.get("storage", {})
+                mon_cfg = parsed.get("monitoring", {})
 
                 if "name" in app_cfg:
                     data["app_name"] = str(app_cfg["name"])
@@ -98,12 +105,30 @@ def load_config(config_path: Optional[str] = None) -> GuardianConfig:
                 if "data_dir" in storage_cfg:
                     data["data_dir"] = str(storage_cfg["data_dir"])
 
+                if "enabled" in mon_cfg:
+                    data["monitoring_enabled"] = bool(mon_cfg["enabled"])
+                wel_cfg = mon_cfg.get("windows_event_log", {})
+                if "enabled" in wel_cfg:
+                    data["win_event_log_enabled"] = bool(wel_cfg["enabled"])
+                if "channels" in wel_cfg and isinstance(wel_cfg["channels"], list):
+                    data["win_event_log_channels"] = [str(c) for c in wel_cfg["channels"]]
+
+                proc_cfg = mon_cfg.get("process", {})
+                if "enabled" in proc_cfg:
+                    data["process_monitoring_enabled"] = bool(proc_cfg["enabled"])
+                if "poll_interval_seconds" in proc_cfg:
+                    data["process_poll_interval"] = float(proc_cfg["poll_interval_seconds"])
+
+                sys_cfg = mon_cfg.get("system", {})
+                if "enabled" in sys_cfg:
+                    data["system_monitoring_enabled"] = bool(sys_cfg["enabled"])
+
         except Exception as e:
             if isinstance(e, ConfigError):
                 raise
             raise ConfigError(f"Error parsing YAML config file {target_yaml}: {e}") from e
 
-    # 2. Apply Environment Variables Overrides (GUARDIAN_*)
+    # Environment Variables Overrides (GUARDIAN_*)
     env_mapping = {
         "GUARDIAN_APP_NAME": "app_name",
         "GUARDIAN_ENV": "environment",
