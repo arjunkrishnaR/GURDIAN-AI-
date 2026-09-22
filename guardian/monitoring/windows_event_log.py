@@ -27,19 +27,29 @@ class IWindowsEventLogProvider(ABC):
 class SubprocessWevtutilProvider(IWindowsEventLogProvider):
     """
     Subprocess-based implementation of Windows Event Log reader using wevtutil.exe.
-    
+
     Security Contract:
     - Uses subprocess.run with shell=False.
     - Explicit fixed argument list only.
-    - Enforces strict timeout and stdout buffer size caps.
+    - Enforces strict timeout.
     """
 
-    def query_events(self, channel: str, max_events: int = 10) -> List[Dict[str, Any]]:
+    def query_events(
+        self,
+        channel: str,
+        max_events: int = 10
+    ) -> List[Dict[str, Any]]:
         if sys.platform != "win32":
             return []
 
-        # Construct strict fixed command args
-        cmd = ["wevtutil.exe", "qe", channel, f"/c:{max_events}", "/rd:true", "/f:xml"]
+        cmd = [
+            "wevtutil.exe",
+            "qe",
+            channel,
+            f"/c:{max_events}",
+            "/rd:true",
+            "/f:xml",
+        ]
 
         try:
             res = subprocess.run(
@@ -50,66 +60,135 @@ class SubprocessWevtutilProvider(IWindowsEventLogProvider):
                 timeout=5.0,
                 text=True,
                 encoding="utf-8",
-                errors="replace"
+                errors="replace",
             )
 
             if res.returncode != 0:
                 return []
 
             return self._parse_xml_output(res.stdout, channel)
+
         except subprocess.TimeoutExpired:
             return []
+
         except Exception:
             return []
 
-    def _parse_xml_output(self, xml_text: str, channel: str) -> List[Dict[str, Any]]:
+    def _parse_xml_output(
+        self,
+        xml_text: str,
+        channel: str
+    ) -> List[Dict[str, Any]]:
+        """Parse wevtutil XML output into normalized event records."""
+
         if not xml_text or not xml_text.strip():
             return []
 
-        events = []
-        # Wrap XML snippets in root element if multiple Events returned
+        events: List[Dict[str, Any]] = []
+
+        # wevtutil may return multiple Event elements without a common root.
         wrapped_xml = f"<Events>{xml_text}</Events>"
+
         try:
             root = ET.fromstring(wrapped_xml)
-            ns = {"ns": "http://schemas.microsoft.com/win/2004/08/events/event"}
+        except ET.ParseError:
+            return []
 
-            for elem in root.findall(".//ns:Event", ns) or root.findall(".//Event"):
-                try:
-                    sys_node = elem.find("ns:System", ns) or elem.find("System")
-                    if sys_node is None:
-                        continue
+        namespace = "http://schemas.microsoft.com/win/2004/08/events/event"
+        ns = {"ns": namespace}
 
-                    provider_node = sys_node.find("ns:Provider", ns) or sys_node.find("Provider")
-                    provider_name = provider_node.attrib.get("Name", "Unknown") if provider_node is not None else "Unknown"
+        event_elements = root.findall(".//ns:Event", ns)
 
-                    event_id_node = sys_node.find("ns:EventID", ns) or sys_node.find("EventID")
-                    event_id = event_id_node.text if event_id_node is not None and event_id_node.text else "0"
+        # Defensive fallback for non-namespaced test/provider data.
+        if not event_elements:
+            event_elements = root.findall(".//Event")
 
-                    level_node = sys_node.find("ns:Level", ns) or sys_node.find("Level")
-                    level = level_node.text if level_node is not None and level_node.text else "0"
+        for elem in event_elements:
+            try:
+                sys_node = elem.find("ns:System", ns)
 
-                    time_node = sys_node.find("ns:TimeCreated", ns) or sys_node.find("TimeCreated")
-                    time_created = time_node.attrib.get("SystemTime", "") if time_node is not None else ""
+                if sys_node is None:
+                    sys_node = elem.find("System")
 
-                    record_node = sys_node.find("ns:EventRecordID", ns) or sys_node.find("EventRecordID")
-                    record_id = record_node.text if record_node is not None and record_node.text else ""
+                if sys_node is None:
+                    continue
 
-                    events.append({
+                provider_node = sys_node.find("ns:Provider", ns)
+
+                if provider_node is None:
+                    provider_node = sys_node.find("Provider")
+
+                if provider_node is not None:
+                    provider_name = provider_node.attrib.get(
+                        "Name",
+                        "Unknown",
+                    )
+                else:
+                    provider_name = "Unknown"
+
+                event_id_node = sys_node.find("ns:EventID", ns)
+
+                if event_id_node is None:
+                    event_id_node = sys_node.find("EventID")
+
+                if event_id_node is not None and event_id_node.text:
+                    event_id = event_id_node.text.strip()
+                else:
+                    event_id = "0"
+
+                level_node = sys_node.find("ns:Level", ns)
+
+                if level_node is None:
+                    level_node = sys_node.find("Level")
+
+                if level_node is not None and level_node.text:
+                    level = level_node.text.strip()
+                else:
+                    level = "0"
+
+                time_node = sys_node.find("ns:TimeCreated", ns)
+
+                if time_node is None:
+                    time_node = sys_node.find("TimeCreated")
+
+                if time_node is not None:
+                    timestamp = time_node.attrib.get(
+                        "SystemTime",
+                        "",
+                    )
+                else:
+                    timestamp = ""
+
+                record_node = sys_node.find(
+                    "ns:EventRecordID",
+                    ns,
+                )
+
+                if record_node is None:
+                    record_node = sys_node.find("EventRecordID")
+
+                if record_node is not None and record_node.text:
+                    record_id = record_node.text.strip()
+                else:
+                    record_id = ""
+
+                events.append(
+                    {
                         "channel": channel,
                         "provider": provider_name,
                         "event_id": event_id,
                         "level": level,
                         "record_id": record_id,
-                        "timestamp": time_created,
-                    })
-                except Exception:
-                    continue
+                        "timestamp": timestamp,
+                    }
+                )
 
-        except Exception:
-            pass
+            except Exception:
+                # One malformed event must not prevent other events
+                # from being parsed.
+                continue
 
         return events
-
 
 class MockWindowsEventLogProvider(IWindowsEventLogProvider):
     """Deterministic mock provider for unit testing without live Windows dependencies."""

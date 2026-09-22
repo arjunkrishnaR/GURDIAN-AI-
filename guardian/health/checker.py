@@ -151,51 +151,75 @@ class HealthChecker:
                 message=f"State manager error: {e}",
                 details={"error": str(e)}
             )
-
     def check_event_system(self) -> HealthCheckResult:
         """Verify EventBus and EventNormalizer operational readiness."""
         try:
             import asyncio
-            from guardian.events import EventBus, EventNormalizer, EventSource, TestEventHandler
+
+            from guardian.events import (
+                EventBus,
+                EventNormalizer,
+                EventSource,
+                TestEventHandler,
+            )
 
             normalizer = EventNormalizer()
             bus = EventBus()
             handler = TestEventHandler("HealthCheckHandler")
             bus.subscribe(handler)
 
-            event = normalizer.normalize({"source": EventSource.INTERNAL, "event_type": "HEALTH_CHECK_TEST"})
-            
-            # Run async publish synchronously inside check
+            event = normalizer.normalize(
+                {
+                    "source": EventSource.INTERNAL,
+                    "event_type": "HEALTH_CHECK_TEST",
+                }
+            )
+
             try:
                 loop = asyncio.get_event_loop()
+
                 if loop.is_running():
-                    # If already in async context, run inline task
-                    task = loop.create_task(bus.publish(event))
+                    loop.create_task(bus.publish(event))
                 else:
                     asyncio.run(bus.publish(event))
+
             except RuntimeError:
                 asyncio.run(bus.publish(event))
 
             return HealthCheckResult(
                 component="event_system",
                 status=HealthStatus.HEALTHY,
-                message="Event system initialized, normalized, and published test event successfully.",
-                details={"event_id": event.event_id, "stats": bus.stats.__dict__}
+                message=(
+                    "Event system initialized, normalized, "
+                    "and published test event successfully."
+                ),
+                details={
+                    "event_id": event.event_id,
+                    "stats": bus.stats.__dict__,
+                },
             )
+
         except Exception as e:
             return HealthCheckResult(
                 component="event_system",
                 status=HealthStatus.FAILED,
                 message=f"Event system check failed: {e}",
-                details={"error": str(e)}
+                details={"error": str(e)},
             )
-
     def check_monitoring_system(self) -> HealthCheckResult:
         """Verify MonitoringManager initialization and sub-collector health states."""
         try:
-            from guardian.monitoring import MonitoringManager, MockWindowsEventLogProvider, WindowsEventLogCollector, MockProcessProvider, ProcessCollector, SystemCollector
+            from guardian.monitoring import (
+                MonitoringManager,
+                WindowsEventLogCollector,
+                ProcessCollector,
+                SystemCollector,
+            )
+            from guardian.monitoring.windows_event_log import (
+                MockWindowsEventLogProvider,
+            )
+            from guardian.monitoring.process import MockProcessProvider
 
-            # Lightweight check using mock providers
             mock_wel = MockWindowsEventLogProvider()
             mock_proc = MockProcessProvider()
 
@@ -205,11 +229,16 @@ class HealthChecker:
                 SystemCollector(),
             ]
 
-            mgr = MonitoringManager(config=self._config or load_config(), collectors=collectors)
+            mgr = MonitoringManager(
+                config=self._config or load_config(),
+                collectors=collectors,
+            )
+
             status_dict = mgr.get_collector_status()
             health_cond = mgr.health_condition
 
             status = HealthStatus.HEALTHY
+
             if health_cond == "DEGRADED":
                 status = HealthStatus.WARNING
             elif health_cond == "FAILED":
@@ -218,21 +247,24 @@ class HealthChecker:
             return HealthCheckResult(
                 component="monitoring_system",
                 status=status,
-                message=f"Monitoring system active (Health Condition: {health_cond}).",
+                message=(
+                    f"Monitoring system active "
+                    f"(Health Condition: {health_cond})."
+                ),
                 details={
                     "health_condition": health_cond,
                     "manager_state": mgr.state.name,
                     "collectors": status_dict,
-                }
+                },
             )
+
         except Exception as e:
             return HealthCheckResult(
                 component="monitoring_system",
                 status=HealthStatus.FAILED,
                 message=f"Monitoring system check failed: {e}",
-                details={"error": str(e)}
+                details={"error": str(e)},
             )
-
     def run_all_checks(self) -> List[HealthCheckResult]:
         """Execute all Phase 1, Phase 2, and Phase 3 health checks and return list of results."""
         return [

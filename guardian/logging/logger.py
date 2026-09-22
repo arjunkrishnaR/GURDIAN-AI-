@@ -21,7 +21,20 @@ class SensitiveDataScrubber(logging.Formatter):
             formatted = pattern.sub(replacement, formatted)
         return formatted
 
+class SafeConsoleHandler(logging.StreamHandler):
+    """Console handler that safely handles pytest and redirected stdout."""
 
+    def __init__(self) -> None:
+        super().__init__(stream=None)
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            self.stream = sys.stdout
+            super().emit(record)
+        except (ValueError, OSError):
+            # stdout may have been closed by a test capture/redirect.
+            pass
+                
 def setup_logging(
     log_level: str = "INFO",
     log_dir: str = "logs",
@@ -41,7 +54,7 @@ def setup_logging(
     )
 
     if console_output:
-        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler = SafeConsoleHandler()
         console_handler.setLevel(level)
         console_handler.setFormatter(formatter)
         logger.addHandler(console_handler)

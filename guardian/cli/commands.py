@@ -32,7 +32,7 @@ def handle_status() -> int:
     print(f"App Name            : {config.app_name}")
     print(f"Version             : {state_dict['version']}")
     print(f"Environment         : {config.environment}")
-    print(f"Lifecycle State     : {state_dict['lifecycle_state']}")
+    print(f"Lifecycle State : {state_dict['lifecycle_state']}")
     print(f"Uptime (sec)        : {state_dict['uptime_seconds']}")
     print(f"Python Version      : {state_dict['system_info'].get('python_version')}")
     print(f"Platform            : {state_dict['system_info'].get('platform')}")
