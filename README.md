@@ -16,43 +16,11 @@ Monitor → Detect → Diagnose → Explain → Approve → Execute → Verify �
 
 ## Current Phase
 
-**Phase 1 — Project Foundation & Engineering Base**
+**Phase 3 — Windows Monitoring & Background Application Control**
 
-Current Status: `PHASE_1_STATUS: COMPLETE`
+Current Status: `PHASE_3_STATUS: COMPLETE`
 
-This initial phase establishes the core Python project structure, centralized configuration system, application state manager, logging framework with sensitive data scrubbing, health check framework, CLI, security foundation, and pytest test suite.
-
----
-
-## Architecture Overview
-
-GuardianAI's modular system architecture consists of:
-
-* **Core Runtime & Lifecycle**: Application startup/shutdown hooks and state tracking.
-* **Centralized Configuration**: YAML & environment variable hierarchy (`GUARDIAN_*`).
-* **Sanitized Logging**: Dual console/file logger with secret masking.
-* **Health Check Engine**: Self-diagnostic health system.
-* **CLI Interface**: Control interface (`guardian version`, `status`, `health`, `start`).
-
----
-
-## Development Setup
-
-### 1. Requirements
-* Windows 10/11 (64-bit)
-* Python 3.10+ (Tested on Python 3.14.2)
-* Git
-
-### 2. Create Virtual Environment
-```cmd
-py -m venv .venv
-.venv\Scripts\activate
-```
-
-### 3. Install Dependencies
-```cmd
-pip install -e .[dev]
-```
+GuardianAI now includes read-only observation of Windows Event Logs (`Application`, `System`), process lifecycle events (`PROCESS_STARTED`, `PROCESS_STOPPED`), and system events running safely in the background under the control of the `MonitoringManager`.
 
 ---
 
@@ -62,21 +30,30 @@ pip install -e .[dev]
 # Display GuardianAI Version
 guardian version
 
-# Display Application Status
+# Display Application & Monitoring Status
 guardian status
 
 # Execute Health Checks
 guardian health
 
-# Start Application Lifecycle
+# Start Application Runtime & Background Monitoring
 guardian start
+
+# Pause Background Monitoring Collectors
+guardian pause
+
+# Resume Background Monitoring Collectors
+guardian resume
+
+# Gracefully Stop GuardianAI Runtime
+guardian stop
 ```
 
 ---
 
 ## Running Tests
 
-Execute the deterministic pytest suite:
+Execute the full deterministic pytest suite:
 
 ```cmd
 pytest -v
@@ -89,12 +66,23 @@ pytest -v
 ```
 C:\GuardianAI
 ├── guardian/
-│   ├── __init__.py
-│   ├── main.py
 │   ├── core/
 │   │   ├── config.py
 │   │   ├── state.py
 │   │   ├── lifecycle.py
+│   │   ├── approval.py
+│   │   └── exceptions.py
+│   ├── events/
+│   │   ├── models.py
+│   │   ├── normalizer.py
+│   │   ├── bus.py
+│   │   └── handlers.py
+│   ├── monitoring/
+│   │   ├── base.py
+│   │   ├── windows_event_log.py
+│   │   ├── process.py
+│   │   ├── system.py
+│   │   ├── manager.py
 │   │   └── exceptions.py
 │   ├── logging/
 │   │   └── logger.py
@@ -103,30 +91,28 @@ C:\GuardianAI
 │   └── cli/
 │       └── commands.py
 ├── tests/
+│   ├── test_monitoring_base.py
+│   ├── test_windows_event_log.py
+│   ├── test_process_monitor.py
+│   ├── test_system_monitor.py
+│   ├── test_monitoring_manager.py
+│   ├── test_events_models.py
+│   ├── test_events_normalizer.py
+│   ├── test_events_bus.py
+│   ├── test_approval.py
 │   ├── test_config.py
 │   ├── test_health.py
-│   ├── test_state.py
 │   ├── test_lifecycle.py
-│   └── test_cli.py
+│   └── test_state.py
 ├── config/
 │   └── config.example.yaml
 ├── docs/
 │   ├── ARCHITECTURE.md
+│   ├── WINDOWS_MONITORING.md
+│   ├── EVENT_SYSTEM.md
 │   ├── DEVELOPMENT.md
 │   ├── SECURITY.md
 │   └── DEPENDENCIES.md
-├── data/
-├── logs/
 ├── pyproject.toml
-├── .gitignore
-├── .env.example
-├── README.md
-└── LICENSE
+└── README.md
 ```
-
----
-
-## Development Philosophy
-
-* **Explicit Boundaries**: Later features (LLMs, Databases, Windows Event Monitoring, Auto-fixing) are intentionally deferred to their respective phases.
-* **Deterministic & Safe**: No uncontrolled background tasks, secret leakage, or arbitrary system modification.
